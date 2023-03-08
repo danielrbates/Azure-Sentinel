@@ -14,6 +14,11 @@ do
         echo "Container: $container_name"
         echo "SENTINEL_AGENT_GUID: $sentinel_agent_guid"
         echo ""
+    else
+        # Debugging output for containers without the environment variable
+        echo "Container: $container_name"
+        echo "SENTINEL_AGENT_GUID not found"
+        echo ""
     fi
 done
 
