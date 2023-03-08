@@ -2,7 +2,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - Medium - Security Audit Log Configuration Change",
-        "Description": "Idenitifes changes for configuration in Securiy Audit Log\n\nSource Action: change any  Security Audit Log Configuration using SM19/RSAU_CONFIG. (Filters/Status/Recording mode etc..)\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes for configuration in Security Audit Log\n\nSource Action: change any Security Audit Log Configuration using SM19/RSAU_CONFIG. (Filters/Status/Recording mode etc..)\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053781813)/",
         "Query": "// Audit Log Classes - Audit Log Configuration Events\r\nlet AuditClasses = dynamic(['AUE','AUF','AUI','AUJ','FU0','E05']); // Relevent messeges\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| project \r\n// Details\r\nTimeGenerated, SystemID_s, User_s, MessageText_s,\r\nAccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s",
@@ -62,7 +62,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Deactivation of Security Audit Log",
-        "Description": "Identifies deactivation of Security Audit Log\n\nSource Action: Disable secruity Audit Log using SM19/RSAU_CONFIG.\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies deactivation of Security Audit Log\n\nSource Action: Disable security Audit Log using SM19/RSAU_CONFIG.\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620055029659)/",
         "Query": "// Audit Log Classes - Audit Log Active Status Events\r\nlet AuditClasses = dynamic(['AUJ']);\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| where Variable1_s == '0' // Audit Active Status = 0\r\n| project \r\n// Details\r\nTimeGenerated, SystemID_s, User_s, MessageText_s, AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s",
@@ -239,7 +239,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Sensitive privileged user logged in",
-        "Description": "Identifies Dialog logon of a sensitive privileged user. \n\nSource Action: Logon to the backend system using SAP* or anoter privileged user.\n\nPriveleged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies Dialog logon of a sensitive privileged user. \n\nSource Action: Logon to the backend system using SAP* or anoter privileged user.\n\nPrivileged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620054993548)/",
         "Query": "// Define Variables\r\n// Audit Log Classes - Dialog Logon Succesful\r\nlet AuditClassesSuccess = dynamic(['AU1']);\r\nlet AuditClassesFail = dynamic(['BU1']);\r\nlet AuditRFCSuccess = dynamic(['AU5']);\r\nlet AuditRFCFail = dynamic(['AU6']);\r\nlet LogonTypes = dynamic(['A','H', 'R', 'S']); // Dialog / HTTP\r\n// Get Relevant User from WatchList\r\nlet PrivelegedUsers = _GetWatchlist('SAP - Privileged Users');\r\nlet fixedUsers = datatable(User:string)\r\n// Maintain these if WatchList is not available    \r\n    [\"SAP*\",\"DDIC\"]\r\n;\r\nlet UnitedPrivileged = union PrivelegedUsers, fixedUsers\r\n| summarize by User;\r\n// Query logic\r\nABAPAuditLog_CL \r\n| where (MessageID_s in (AuditClassesSuccess) and Variable1_s in (LogonTypes)) or // Success login\r\nMessageID_s in (AuditClassesFail) or // Failed login\r\n(MessageID_s in (AuditRFCSuccess) and Variable1_s in (LogonTypes)) or // Success RFC login\r\nMessageID_s in (AuditRFCFail) // Failed RFC login\r\n| where User_s in (UnitedPrivileged)\r\n| project-rename LogonType = Variable1_s\r\n| project TimeGenerated, SystemID_s, ClientID_s, LogonType, User_s, MessageText_s, \r\nAccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
@@ -533,7 +533,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - Medium - Multiple Logons by User",
-        "Description": "Identifies logon of the same user from several terminals within scheduled time interval.\n\nSource Action: Logon using the same user thorugh different IP's.\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies logon of the same user from several terminals within scheduled time interval.\n\nSource Action: Logon using the same user thorugh different IPs.\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053556371)/",
         "Query": "// Define variables\r\n// Audit Log Classes - Dialog Logon Successful, RFC Logon Successful\r\nlet AuditClasses = dynamic(['AU1','AU5']);\r\n// Dialog / CPIC / RFC Int / RFC Ext / SRFC / User Switch / HTTP / Restore Session / API Call\r\nlet DialogLogonTypes = dynamic(['A', 'C', 'F', 'R', 'S', 'U', 'H', 'u', ' ']);\r\nlet excUsers = _GetWatchlist('SAP - Excluded Users'); // Users that should be removed from query\r\nlet fixedExcUsers = datatable(User:string)\r\n// Maintain these if WatchList is not available    \r\n    [\"SYSWF\"]\r\n; \r\nlet UnitedExcUsers =\r\ntoscalar(union excUsers, fixedExcUsers\r\n| summarize Users = make_set(User));\r\nlet IPThreshold = 1;\r\n// Query Logic\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| where Variable1_s in (DialogLogonTypes)\r\n| where User_s !in (UnitedExcUsers)\r\n| summarize CountIP = dcount(TerminalIPv6_s), IPs = make_set(TerminalIPv6_s), StartTime = min(TimeGenerated), EndTime = max(TimeGenerated) by SystemID_s, ClientID_s, User_s, Email_s\r\n| where CountIP > IPThreshold // Count of IP logins from the user is higher than threshold\r\n| mv-expand IPs to typeof(string ) // Show for each IP\r\n| project SystemID_s, ClientID_s, User_s, StartTime, EndTime,\r\n    AccountCustomEntity = Email_s, IPCustomEntity = IPs",
@@ -652,7 +652,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Login from unexpected network",
-        "Description": "Identifies logons from an unexpected network.\n\nSource Action: Logon to the backend system from an IP address which is not assigned to one of the netwroks.\n\nNetworks should be maintained in watchlist \"SAP - Networks\"\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies logons from an unexpected network.\n\nSource Action: Logon to the backend system from an IP address which is not assigned to one of the networks.\n\nNetworks should be maintained in watchlist \"SAP - Networks\"\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620054855631)/",
         "Query": "let AuditClasses = dynamic(['AU1','AU5']); // Audit Log Classes - Dialog Logon Successful, RFC Logon Successful\r\n// Dialog / CPIC / RFC Int / RFC Ext / SRFC / User Switch / HTTP / Restore Session / API Call\r\nlet DialogLogonTypes = dynamic(['A', 'C', 'F', 'R', 'S', 'U', 'H', 'u', ' ']);\r\nlet Networks = _GetWatchlist('SAP - Networks'); \r\nlet fixedNetworks = datatable(Network: string)['111.68.128.0/17']; // Maintain these if watchlist is not available\r\nlet allNetworks = union Networks, fixedNetworks\r\n    | summarize by Network;\r\nABAPAuditLog_CL\r\n// Add audit classes\r\n| where MessageID_s in (AuditClasses)\r\n| where Variable1_s in (DialogLogonTypes) // Is a dialog logon type from the list\r\n| where isnotempty(TerminalIPv6_s) // There is a Ipv6 address\r\n| evaluate ipv4_lookup(allNetworks, TerminalIPv6_s, Network, return_unmatched = true)\r\n// Similar to regular lookup, by ipv4 address, unmatched is like left join\r\n| where isempty(Network) // Network is not familiar\r\n// Details\r\n| project TimeGenerated, SystemID_s, ClientID_s, User_s, TransactionCode_s, MessageText_s, AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s",
@@ -770,7 +770,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Function Module tested",
-        "Description": "Identifies testing of a function module.\n\nSource Action: Test a function module using  SE37 / SE80.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies testing of a function module.\n\nSource Action: Test a function module using SE37 / SE80.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620054727004)/",
         "Query": "let Role = 'Production';\r\nlet ProgramName = 'RS_TESTFRAME_CALL';\r\nlet AuditClasses = dynamic(['AUW']); // Audit Log Classes - Report Started\r\nlet allSystemRoles = dynamic(['Sandbox', 'Developement', 'QualityAssurance', 'Training', 'Production']); // Available System Roles\r\nlet allSystemUsage = dynamic (['ERP', 'CRM', 'BW', 'Solman', 'Gateway', 'Enterprise Portal']); // Available System Usages\r\n// Get Relevant Systems from WatchList\r\nlet systemID = _GetWatchlist('SAP - Systems');\r\nlet fixedSID = datatable(SystemID: string, SystemRole: string, SystemUsage: string)\r\n    // Maintain these if WatchList is not available    \r\n    [\"S4H\", \"Production\", \"ERP\",\r\n    \"XXX\", \"Sandbox\", \"BW\"]\r\n; \r\nlet UnitedSystem = \r\nunion systemID, fixedSID\r\n| summarize by SystemID, SystemRole, SystemUsage\r\n| where SystemRole == Role; // Reccommended is Production only\r\n//| where SystemRole in (allSystemRoles); // Use this for all system roles\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| where ABAPProgramName_s == ProgramName\r\n| project-rename SystemID = SystemID_s\r\n| lookup kind = inner (UnitedSystem) on SystemID\r\n| order by TimeGenerated asc\r\n| project TimeGenerated, User_s, SystemID, ClientID_s, MessageText_s, MessageID_s,\r\n    AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s ",
@@ -830,7 +830,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Change in Sensitive privileged user",
-        "Description": "Identifies changes  of sensitive privileged users. \n\nSource Action: Change user details / authorizations using SU01.\n\nPriveleged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes  of sensitive privileged users. \n\nSource Action: Change user details / authorizations using SU01.\n\nPrivileged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620054175092)/",
         "Query": "// Audit Log Classes - User Master Changes\r\nlet AuditClasses = dynamic(['AU7', 'BUV', 'BUW', 'AU8', 'AU9', 'AUA', 'AUB', 'AUD', 'DUH', 'BU2']);\r\n// Get Relevant User from WatchList\r\nlet PrivelegedUsers = _GetWatchlist('SAP - Privileged Users');\r\nlet fixedUsers = datatable(User: string)\r\n    // Maintain these if WatchList is not available    \r\n    [\"SAP*\", \"DDIC\"]\r\n;\r\nlet UnitedPrivleged = union PrivelegedUsers, fixedUsers\r\n| summarize by User;\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| where Variable1_s in (UnitedPrivleged) // The user that we are making change in is a sensitive privileged user\r\n| project TimeGenerated, SystemID_s, ClientID_s, User_s, MessageText_s, MessageID_s,\r\n    AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
@@ -1063,7 +1063,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - HANA DB - User Admin actions",
-        "Description": "Identifies user administration actions.\n\nSouirce Action: Create/Update/Delete a DB User.\n\n*Data Sources: Linux Agent - Syslog*",
+        "Description": "Identifies user administration actions.\n\nSource Action: Create/Update/Delete a DB User.\n\n*Data Sources: Linux Agent - Syslog*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620024602562)/",
         "Query": "Syslog \r\n| where ProcessName startswith \"HDB\"\r\n| where SyslogMessage contains \"CREATE USER\" or \r\n    SyslogMessage contains 'ALTER USER' or \r\n    SyslogMessage contains 'DROP USER' or \r\n    SyslogMessage contains 'DROP SCHEMA'",
@@ -1181,7 +1181,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - HANA DB - Deactivation of Audit Trail",
-        "Description": "Identifies deactivation of HANA DB audit log.\n\nSource Action: Deactivate Audit Log in HANA DB security defnitions.\n\n*Data Sources: Linux Agent - Syslog*",
+        "Description": "Identifies deactivation of HANA DB audit log.\n\nSource Action: Deactivate Audit Log in HANA DB security definitions.\n\n*Data Sources: Linux Agent - Syslog*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620024742785)/",
         "Query": "Syslog \r\n| where ProcessName startswith \"HDB\"\r\n| where SyslogMessage contains \"AUDIT CONFIGURATION\" and \r\n    SyslogMessage contains 'global_auditing_state' and \r\n    SyslogMessage contains 'False'",
@@ -1241,7 +1241,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - Medium - Debugging Activities",
-        "Description": "Identifies all debugging related activities.\n\nSource Action: Activate Debug (\"/h\") in system, debug an active process, add breakpoint to source code etc.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies all debugging related activities.\n\nSource Action: Activate Debug (\"/h\") in system, debug an active process, add breakpoint to source code, etc.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053159704)/",
         "Query": "let Role = 'Production';\r\nlet DebuggerProgram = 'RSTPDAMAIN';\r\nlet AuditClasses = dynamic(['CUK','CUL','CUM','CUN','CUO','CUP']); // Audit Log Classes - Debug Activities\r\nlet allSystemRoles = dynamic(['Sandbox','Developement','QualityAssurance','Training','Production']); // Available System Roles\r\nlet allSystemUsage = dynamic (['ERP','CRM','BW','Solman','Gateway','Enterprise Portal']); // Available System Usages\r\n// Get Relevant Systems from WatchList\r\nlet systemID = _GetWatchlist('SAP - Systems')\r\n| where SystemRole == Role; // Reccommended is Production only\r\nlet fixedSID = datatable(SystemID:string, SystemRole:string, SystemUsage:string)\r\n// Maintain these if WatchList is not available    \r\n    [\"S4H\",\"Production\",\"ERP\",\r\n    \"XXX\",\"Sandbox\",\"BW\"]\r\n    | where SystemRole == Role // Reccommended is Production only\r\n; \r\nlet SystemUnited = union systemID, fixedSID\r\n| summarize by SystemID, SystemRole, SystemUsage;\r\n//| where SystemRole in (allSystemRoles); // Use this for all system roles\r\nABAPAuditLog_CL \r\n    | where MessageID_s in (AuditClasses) or ABAPProgramName_s == DebuggerProgram // Get logs by messege ID or program name\r\n    | project-rename SystemID = SystemID_s\r\n    | lookup kind=inner (SystemUnited) on SystemID\r\n    | order by TimeGenerated asc\r\n    | project TimeGenerated, User_s, MessageText_s, ABAPProgramName_s, TransactionCode_s, SystemID, SystemRole, SystemUsage,MessageID_s, AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s",
@@ -1299,7 +1299,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Data has Changed during Debugging Activity",
-        "Description": "Identifies changes for runtime data during a debugging activity.\nSource Action: Activate Debug (\"/h\"), Select a field for change and update it's value.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes for runtime data during a debugging activity.\nSource Action: Activate Debug (\"/h\"), select a field for change, and update its value.\n\n**Recommended for Production only**\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053968033)/",
         "Query": "let Role = 'Production';\r\nlet AuditClasses = dynamic(['CUL']); // Audit Log Classes - Debug Change\r\nlet allSystemRoles = dynamic(['Sandbox','Developement','QualityAssurance','Training','Production']); // Available System Roles\r\nlet allSystemUsage = dynamic (['ERP','CRM','BW','Solman','Gateway','Enterprise Portal']); // Available System Usages\r\n// Get Relevant Systems from WatchList\r\nlet systemID = _GetWatchlist('SAP - Systems');\r\nlet fixedSID = datatable(SystemID:string, SystemRole:string, SystemUsage:string)\r\n// Maintain these if WatchList is not available    \r\n    [\"S4H\",\"Production\",\"ERP\",\r\n    \"XXX\",\"Sandbox\",\"BW\"]\r\n;\r\nlet UnitedSystem = \r\nunion systemID, fixedSID\r\n| summarize by SystemID, SystemRole, SystemUsage\r\n| where SystemRole == Role; // Reccommended is Production only\r\n//| where SystemRole in (allSystemRoles); // Use this for all system roles\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| project-rename SystemID = SystemID_s\r\n| lookup kind = inner (UnitedSystem) on SystemID\r\n| project TimeGenerated, User_s, MessageText_s, ABAPProgramName_s, TransactionCode_s, SystemID, SystemRole, SystemUsage,\r\nAccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
@@ -1358,7 +1358,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - System Configuration Change",
-        "Description": "Identifies changes for system configuration. \n\nSource Action:  Adapt system change options or software components modifcation using SE06 transaction code.\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes for system configuration. \n\nSource Action:  Adapt system change options or software components modification using SE06 transaction code.\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053932658)/",
         "Query": "// Audit Log Classes - System Change Configuration\r\nlet AuditClasses = dynamic(['EU1']); // Relevent message\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| project \r\n// Details\r\nTimeGenerated, SystemID_s, User_s, TransactionCode_s, SoftwareComponent = Variable1_s, NewModifiabilityStatus = Variable2_s, MessageText_s,\r\nAccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
@@ -1418,7 +1418,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Client Configuration Change",
-        "Description": "Identifies changes for client configuration such as: Client role, Changes recording mode. \n\nSource Action:  Perofrm client configurations changes using SCC4 transaction code. \n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes for client configuration such as client role or recording mode. \n\nSource Action:  Perform client configuration changes using SCC4 transaction code. \n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053886970)/",
         "Query": "// Audit Log Classes - Client Change Configuration\r\nlet AuditClasses = dynamic(['EU2']); // Relevent message\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| project-rename  ClientID = Variable1_s \r\n| parse Variable2_s with Currency \"|\" ClientRole \"|\" RecordingChanges \"|\" CrossClientObjectChanges \"|\" ClientCopyProtectionLevel \"|\" ProtectionSAPUpgrade \"|\" CATTeCATT \"|\"  LockedforCopy // Parse every object before the | char \r\n| project TimeGenerated, SystemID_s, User_s, ClientID, \r\nCurrency,ClientRole,RecordingChanges,CrossClientObjectChanges,ClientCopyProtectionLevel,CATTeCATT,LockedforCopy,ProtectionSAPUpgrade,\r\nMessageText_s,\r\nAccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
@@ -1478,7 +1478,7 @@
     {
         "AlertRuleTemplateName": null,
         "DisplayName": "(Preview) SAP - High - Sensitive privileged user makes a change in other user",
-        "Description": "Identifies changes  of sensitive privileged users in other users.\n\nSource Action: Change user details / authorizations using SU01.\n\nPriveleged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
+        "Description": "Identifies changes  of sensitive privileged users in other users.\n\nSource Action: Change user details / authorizations using SU01.\n\nPrivileged users should be maintained in \"SAP - Privileged Users\" Watchlist\n\n*Data Sources: SAPcon -  Audit Log*",
         "Enabled": true,
         "LastModifiedUtc": "/Date(1620053825331)/",
         "Query": "// Audit Log Classes - User Master Changes\r\nlet AuditClasses = dynamic(['AU7', 'BUV', 'BUW', 'AU8', 'AU9', 'AUA', 'AUB', 'AUD', 'DUH', 'BU2']);\r\n// Get Relevant User from WatchList\r\nlet PrivelegedUsers = _GetWatchlist('SAP - Privileged Users');\r\nlet fixedUsers = datatable(User: string)\r\n    // Maintain these if WatchList is not available    \r\n    [\"SAP*\", \"DDIC\"]\r\n;\r\nlet UnitedPrivleged = union PrivelegedUsers, fixedUsers\r\n| summarize by User;\r\nABAPAuditLog_CL \r\n| where MessageID_s in (AuditClasses)\r\n| where User_s in (UnitedPrivleged) // The user that makes a change is a sensitive privileged user\r\n| project TimeGenerated, SystemID_s, ClientID_s, User_s, MessageText_s, MessageID_s,\r\n    AccountCustomEntity = Email_s, IPCustomEntity = TerminalIPv6_s, HostCustomEntity = Host_s\r\n",
