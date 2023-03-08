@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Loop over all running Docker containers
-for container_id in $(docker ps -q)
+for container_id in $(docker ps -qa)
 do
     # Get the container name
     container_name=$(docker inspect --format '{{ .Name }}' $container_id | sed 's|/||')
